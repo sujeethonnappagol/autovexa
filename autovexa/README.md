@@ -279,13 +279,3 @@ Both the **server** and **client** must run at the same time.
 
 ---
 
-## License
-
-This project is for educational / portfolio use.  
-Update this section if you choose a specific open-source license (e.g. MIT).
-
----
-
-## Author
-
-Built as an online vehicle showroom platform (AutoVexa).
