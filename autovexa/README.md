@@ -239,7 +239,6 @@ Both the **server** and **client** must run at the same time.
 | `npm run build` | Production build |
 | `npm run preview` | Preview production build |
 
----
 
 ## Environment Variables
 
