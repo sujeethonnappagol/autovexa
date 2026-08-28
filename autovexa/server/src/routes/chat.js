@@ -1,7 +1,9 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import { Op } from 'sequelize';
 import ChatMessage from '../models/ChatMessage.js';
 import User from '../models/User.js';
+import Vehicle from '../models/Vehicle.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = express.Router();
@@ -17,6 +19,7 @@ Your job:
 - Prices are in Indian Rupees (INR)
 - Contact: support@autovexa.com, phone +91 8123097054, Bangalore, Karnataka, India
 - Project ownership: Sujeet is the owner and main lead of the AutoVexa project. If asked who owns, leads, created, founded, made, or is behind this project, answer that it is Sujeet.
+- You have live inventory tools. Use them whenever a user asks to find, compare, inspect, or check a vehicle. Never invent vehicle availability, price, specs, or vendor details.
 
 Key flows:
 - Customers must sign up / log in before booking a vehicle
@@ -27,6 +30,88 @@ Key flows:
 
 If asked something unrelated to AutoVexa or cars on this platform, politely redirect to AutoVexa topics.
 Use the conversation history to remember what the user said earlier in this chat.`;
+
+const tools = [
+  {
+    type: 'function',
+    function: {
+      name: 'search_vehicles',
+      description: 'Search currently listed vehicles by optional brand, type, fuel, maximum price, and availability.',
+      parameters: {
+        type: 'object',
+        properties: {
+          brand: { type: 'string' },
+          type: { type: 'string' },
+          fuelType: { type: 'string' },
+          maxPrice: { type: 'number' },
+          status: { type: 'string', enum: ['Available', 'Booked'] },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_vehicle_details',
+      description: 'Get full details for one vehicle by numeric vehicle ID.',
+      parameters: {
+        type: 'object',
+        properties: { vehicleId: { type: 'number' } },
+        required: ['vehicleId'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'check_availability',
+      description: 'Check whether one vehicle is currently available by numeric vehicle ID.',
+      parameters: {
+        type: 'object',
+        properties: { vehicleId: { type: 'number' } },
+        required: ['vehicleId'],
+        additionalProperties: false,
+      },
+    },
+  },
+];
+
+async function runTool(name, rawArguments) {
+  let args = {};
+  try {
+    args = JSON.parse(rawArguments || '{}');
+  } catch {
+    return { error: 'The tool arguments were invalid.' };
+  }
+
+  if (name === 'search_vehicles') {
+    const where = { status: { [Op.ne]: 'Disabled' } };
+    if (args.brand) where.brand = { [Op.like]: `%${String(args.brand).slice(0, 80)}%` };
+    if (args.type) where.type = { [Op.like]: `%${String(args.type).slice(0, 40)}%` };
+    if (args.fuelType) where.fuelType = { [Op.like]: `%${String(args.fuelType).slice(0, 40)}%` };
+    if (args.status) where.status = args.status;
+    if (Number.isFinite(Number(args.maxPrice))) where.price = { [Op.lte]: Number(args.maxPrice) };
+    const vehicles = await Vehicle.findAll({
+      where,
+      include: [{ model: User, as: 'User', attributes: ['id', 'name', 'businessName'] }],
+      order: [['price', 'ASC']],
+      limit: 10,
+    });
+    return vehicles.map((vehicle) => vehicle.toClient());
+  }
+
+  const vehicle = await Vehicle.findByPk(Number(args.vehicleId), {
+    include: [{ model: User, as: 'User', attributes: ['id', 'name', 'businessName'] }],
+  });
+  if (!vehicle) return { error: 'Vehicle not found.' };
+  if (name === 'check_availability') {
+    return { vehicleId: vehicle.id, name: `${vehicle.brand} ${vehicle.model}`, status: vehicle.status, available: vehicle.status === 'Available' };
+  }
+  if (name === 'get_vehicle_details') return vehicle.toClient();
+  return { error: `Unknown tool: ${name}` };
+}
 
 /** Optional auth — attaches req.user if token present */
 async function optionalAuth(req, _res, next) {
@@ -128,34 +213,50 @@ router.post(
 
     const model = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5173',
-        'X-Title': 'AutoVexa VexaBot',
-      },
-      body: JSON.stringify({
-        model,
-        messages: openaiMessages,
-        temperature: 0.5,
-        max_tokens: 600,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('OpenRouter error:', response.status, errText);
-      return res.status(502).json({
-        message: 'AI service error. Please try again in a moment.',
+    let reply = '';
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5173',
+          'X-Title': 'AutoVexa VexaBot',
+        },
+        body: JSON.stringify({
+          model,
+          messages: openaiMessages,
+          tools,
+          tool_choice: 'auto',
+          temperature: 0.5,
+          max_tokens: 600,
+        }),
       });
-    }
 
-    const data = await response.json();
-    const reply =
-      data.choices?.[0]?.message?.content?.trim() ||
-      "I'm sorry, I couldn't generate a reply. Please try again.";
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('OpenRouter error:', response.status, errText);
+        return res.status(502).json({ message: 'AI service error. Please try again in a moment.' });
+      }
+
+      const assistant = (await response.json()).choices?.[0]?.message;
+      if (!assistant) break;
+      openaiMessages.push(assistant);
+      if (!assistant.tool_calls?.length) {
+        reply = typeof assistant.content === 'string' ? assistant.content.trim() : '';
+        break;
+      }
+      for (const call of assistant.tool_calls) {
+        const result = await runTool(call.function.name, call.function.arguments);
+        openaiMessages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          name: call.function.name,
+          content: JSON.stringify(result),
+        });
+      }
+    }
+    reply ||= "I'm sorry, I couldn't generate a reply. Please try again.";
 
     await ChatMessage.create({
       sessionId,

@@ -4,10 +4,10 @@ import { HiSparkles } from 'react-icons/hi';
 import { chatAPI, getErrorMessage } from '../services/api';
 
 const SUGGESTIONS = [
+  'Find an available SUV under ₹20 lakh',
+  'Show me details for vehicle 11',
+  'Is vehicle 11 available?',
   'How do I book a car?',
-  'Demo login credentials',
-  'How to become a vendor?',
-  'How do filters work?',
 ];
 
 function getOrCreateSessionId() {
