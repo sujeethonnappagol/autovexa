@@ -8,6 +8,19 @@ import { FaCheck, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800';
 
+function collection(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return value.split(',').map((item) => item.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
 export default function VehicleDetails() {
   const { id } = useParams();
   const dispatch = useDispatch();
@@ -73,7 +86,6 @@ export default function VehicleDetails() {
       navigate('/login');
       return;
     }
-    const vehiclePrice = 50000;
     const bookingFee = 5000;
     const tax = 4000;
     const result = await dispatch(
@@ -111,8 +123,10 @@ export default function VehicleDetails() {
     );
   }
 
-  const images =
-    vehicle.images?.length > 0 ? vehicle.images : [FALLBACK_IMG];
+  const images = collection(vehicle.images).filter(Boolean);
+  if (images.length === 0) images.push(FALLBACK_IMG);
+  const features = collection(vehicle.features).filter(Boolean);
+  const vehiclePrice = Number(vehicle.price) || 0;
   const available = vehicle.status === 'Available';
 
   return (
@@ -207,11 +221,11 @@ export default function VehicleDetails() {
             <p className="text-slate-600 text-sm leading-relaxed mb-6">{vehicle.description}</p>
           )}
 
-          {vehicle.features?.length > 0 && (
+          {features.length > 0 && (
             <div className="mb-8">
               <h3 className="font-bold text-slate-900 mb-2">Features</h3>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {vehicle.features.map((f) => (
+                {features.map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm text-slate-600">
                     <FaCheck className="text-emerald-500 text-xs shrink-0" /> {f}
                   </li>
@@ -306,8 +320,8 @@ export default function VehicleDetails() {
               <div className="bg-slate-50 rounded-xl p-4 text-sm space-y-1">
                 <h4 className="font-bold mb-2">Booking Summary</h4>
                 <div className="flex justify-between">
-                  <span>Token amount</span>
-                  <span>₹50,000</span>
+                  <span>Vehicle amount</span>
+                  <span>{formatPrice(vehiclePrice)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Booking Fee</span>
@@ -319,7 +333,7 @@ export default function VehicleDetails() {
                 </div>
                 <div className="flex justify-between font-bold border-t pt-2 mt-2">
                   <span>Total</span>
-                  <span>₹59,000</span>
+                  <span>{formatPrice(vehiclePrice + 5000 + 4000)}</span>
                 </div>
               </div>
               <div className="flex gap-3">

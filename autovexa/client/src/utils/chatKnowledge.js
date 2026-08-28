@@ -11,6 +11,20 @@ export const KNOWLEDGE = [
       'AutoVexa is a premium online vehicle marketplace. You can browse cars from verified vendors, compare specs, book a vehicle, and download invoices — all in one place.',
   },
   {
+    keys: [
+      'who is the owner',
+      'owner of this project',
+      'project owner',
+      'main lead',
+      'project lead',
+      'who created this',
+      'who made this',
+      'founder of autovexa',
+      'who is behind this project',
+    ],
+    answer: 'Sujeet is the owner and main lead of the AutoVexa project.',
+  },
+  {
     keys: ['how to book', 'book a car', 'booking', 'reserve', 'book now'],
     answer:
       "To book: 1) Go to Vehicles 2) Open a listing 3) Click Book Now 4) Fill your details and date 5) Confirm. You'll get a booking ID. Sign in as a customer first.",

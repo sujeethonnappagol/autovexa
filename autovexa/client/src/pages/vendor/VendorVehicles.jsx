@@ -2,6 +2,21 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { vendorAPI, vehicleAPI, getErrorMessage } from '../../services/api';
 import Loading from '../../components/Loading';
+import { USE_MOCK } from '../../utils/constants';
+import { mockVehicles } from '../../utils/mockData';
+
+function firstImage(value) {
+  if (Array.isArray(value)) return value[0];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed[0] : value;
+    } catch {
+      return value;
+    }
+  }
+  return null;
+}
 
 export default function VendorVehicles() {
   const [vehicles, setVehicles] = useState([]);
@@ -16,7 +31,12 @@ export default function VendorVehicles() {
       const { data } = await vendorAPI.getMyVehicles();
       setVehicles(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to load vehicles'));
+      if (USE_MOCK) {
+        const vendorId = JSON.parse(localStorage.getItem('user') || '{}').id;
+        setVehicles(mockVehicles.filter((vehicle) => !vendorId || vehicle.vendor?.id === vendorId));
+      } else {
+        setError(getErrorMessage(err, 'Failed to load vehicles'));
+      }
     } finally {
       setLoading(false);
     }
@@ -88,7 +108,7 @@ export default function VendorVehicles() {
           {vehicles.map((v) => (
             <div key={v.id} className="card-static p-5 sm:p-6 flex flex-col md:flex-row gap-4 md:items-center">
               <img
-                src={v.images?.[0] || 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=400'}
+                src={firstImage(v.images) || 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=400'}
                 alt={`${v.brand} ${v.model}`}
                 className="w-full md:w-36 h-28 object-cover rounded-xl bg-slate-100 shrink-0"
               />

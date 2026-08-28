@@ -27,14 +27,15 @@ export const fetchBookings = createAsyncThunk(
  */
 export const fetchMyBookings = createAsyncThunk(
   'bookings/fetchMy',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
       const { data } = await bookingAPI.getMyBookings();
       return Array.isArray(data) ? data : data.bookings || data.data || [];
     } catch (error) {
       if (USE_MOCK) {
         await new Promise((r) => setTimeout(r, 400));
-        return mockBookings;
+        const userId = getState().auth.user?.id;
+        return mockBookings.filter((booking) => !userId || booking.customer?.id === userId);
       }
       return rejectWithValue(getErrorMessage(error, 'Failed to load your bookings'));
     }
@@ -67,16 +68,29 @@ export const fetchBookingById = createAsyncThunk(
  */
 export const createBooking = createAsyncThunk(
   'bookings/create',
-  async (bookingData, { rejectWithValue }) => {
+  async (bookingData, { rejectWithValue, getState }) => {
     try {
       const { data } = await bookingAPI.create(bookingData);
       return data.booking || data;
     } catch (error) {
       if (USE_MOCK) {
         await new Promise((r) => setTimeout(r, 800));
-        return {
+        const user = getState().auth.user || {};
+        const vehicle = mockVehicles.find((item) => String(item.id) === String(bookingData.vehicleId));
+        if (!vehicle) return rejectWithValue('Vehicle not found');
+        vehicle.status = 'Booked';
+
+        const booking = {
           id: `BK${Date.now().toString().slice(-5)}`,
           ...bookingData,
+          vehicle,
+          customer: {
+            id: user.id,
+            name: bookingData.name || user.name,
+            email: bookingData.email || user.email,
+            phone: bookingData.phone || user.phone,
+          },
+          vendor: vehicle.vendor,
           status: 'Confirmed',
           createdAt: new Date().toISOString().split('T')[0],
           amount:
@@ -84,6 +98,8 @@ export const createBooking = createAsyncThunk(
             (bookingData.bookingFee || 0) +
             (bookingData.tax || 0),
         };
+        mockBookings.unshift(booking);
+        return booking;
       }
       return rejectWithValue(getErrorMessage(error, 'Booking failed'));
     }

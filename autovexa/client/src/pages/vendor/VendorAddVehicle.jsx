@@ -18,7 +18,6 @@ const empty = {
   type: 'SUV',
   description: '',
   features: [],
-  images: '',
   status: 'Available',
 };
 
@@ -26,6 +25,7 @@ export default function VendorAddVehicle() {
   const [form, setForm] = useState(empty);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [imageFiles, setImageFiles] = useState([]);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { loading } = useSelector((s) => s.vehicles);
@@ -41,6 +41,25 @@ export default function VendorAddVehicle() {
     }));
   };
 
+  const handleImages = (e) => {
+    const files = Array.from(e.target.files || []);
+    const oversized = files.find((file) => file.size > 1500000);
+    if (oversized) {
+      setError('Each car image must be smaller than 1.5 MB.');
+      return;
+    }
+    setError('');
+    setImageFiles(files);
+  };
+
+  const readImage = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -54,9 +73,7 @@ export default function VendorAddVehicle() {
       year: Number(form.year),
       price: Number(form.price),
       seatingCapacity: Number(form.seatingCapacity) || 5,
-      images: form.images
-        ? form.images.split(',').map((s) => s.trim()).filter(Boolean)
-        : [],
+      images: await Promise.all(imageFiles.map(readImage)),
     };
     const result = await dispatch(createVehicle(payload));
     setSaving(false);
@@ -156,13 +173,25 @@ export default function VendorAddVehicle() {
         </div>
 
         <div>
-          <label className="label">Image URLs (comma-separated)</label>
+          <label className="label">Car Images</label>
           <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
             className="input-field"
-            placeholder="https://example.com/car.jpg"
-            value={form.images}
-            onChange={(e) => set('images', e.target.value)}
+            onChange={handleImages}
           />
+          <p className="text-xs text-slate-500 mt-1">Select images from your computer. Maximum 1.5 MB each.</p>
+          {imageFiles.length > 0 && (
+            <div className="flex flex-wrap gap-3 mt-3">
+              {imageFiles.map((file) => (
+                <div key={`${file.name}-${file.lastModified}`} className="text-xs text-slate-600">
+                  <img src={URL.createObjectURL(file)} alt={file.name} className="w-20 h-16 object-cover rounded-lg bg-slate-100" />
+                  <span className="block max-w-20 truncate mt-1">{file.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>

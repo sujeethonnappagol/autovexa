@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { vendorAPI, bookingAPI, getErrorMessage } from '../../services/api';
 import Loading from '../../components/Loading';
+import { USE_MOCK } from '../../utils/constants';
+import { mockBookings, mockVehicles } from '../../utils/mockData';
 
 export default function VendorBookings() {
   const [bookings, setBookings] = useState([]);
@@ -16,7 +18,12 @@ export default function VendorBookings() {
       const { data } = await vendorAPI.getMyBookings();
       setBookings(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to load bookings'));
+      if (USE_MOCK) {
+        const vendorId = JSON.parse(localStorage.getItem('user') || '{}').id;
+        setBookings(mockBookings.filter((booking) => !vendorId || booking.vendor?.id === vendorId));
+      } else {
+        setError(getErrorMessage(err, 'Failed to load bookings'));
+      }
     } finally {
       setLoading(false);
     }
@@ -37,7 +44,19 @@ export default function VendorBookings() {
       await bookingAPI.updateStatus(id, status);
       await load();
     } catch (err) {
-      alert(getErrorMessage(err, 'Could not update booking'));
+      if (USE_MOCK) {
+        const booking = mockBookings.find((item) => item.id === id);
+        if (booking) {
+          booking.status = status;
+          if (status === 'Cancelled') {
+            const vehicle = mockVehicles.find((item) => item.id === booking.vehicleId);
+            if (vehicle) vehicle.status = 'Available';
+          }
+        }
+        await load();
+      } else {
+        alert(getErrorMessage(err, 'Could not update booking'));
+      }
     } finally {
       setBusyId(null);
     }

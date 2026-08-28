@@ -96,12 +96,19 @@ async function findBooking(id) {
   return booking;
 }
 
+function canAccessBooking(booking, user) {
+  if (user.role === 'admin') return true;
+  if (user.role === 'vendor') return booking.vendorId === user.id;
+  return booking.customerId === user.id;
+}
+
 router.get(
   '/:id',
   protect,
   asyncHandler(async (req, res) => {
     const booking = await findBooking(req.params.id);
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!canAccessBooking(booking, req.user)) return res.status(403).json({ message: 'Not your booking' });
     res.json(toClient(booking));
   })
 );
@@ -155,6 +162,10 @@ router.patch(
   asyncHandler(async (req, res) => {
     const booking = await findBooking(req.params.id);
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!canAccessBooking(booking, req.user)) return res.status(403).json({ message: 'Not your booking' });
+    if (!['Pending', 'Confirmed', 'Cancelled', 'Completed'].includes(req.body.status)) {
+      return res.status(400).json({ message: 'Invalid booking status' });
+    }
     booking.status = req.body.status;
     await booking.save();
     res.json({ id: booking.bookingId, status: booking.status });
@@ -167,7 +178,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const booking = await findBooking(req.params.id);
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    if (req.user.role === 'user' && booking.customerId !== req.user.id) {
+    if (!canAccessBooking(booking, req.user)) {
       return res.status(403).json({ message: 'Not your booking' });
     }
     booking.status = 'Cancelled';
@@ -187,6 +198,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const booking = await findBooking(req.params.id);
     if (!booking) return res.status(404).json({ message: 'Invoice not found' });
+    if (!canAccessBooking(booking, req.user)) return res.status(403).json({ message: 'Not your booking' });
     res.json({
       invoiceNo: `INV-2026-${String(booking.bookingId).replace(/\D/g, '').padStart(5, '0')}`,
       date: booking.bookingDate,

@@ -49,22 +49,31 @@ export const fetchVehicleById = createAsyncThunk(
  */
 export const createVehicle = createAsyncThunk(
   'vehicles/create',
-  async (vehicleData, { rejectWithValue }) => {
+  async (vehicleData, { rejectWithValue, getState }) => {
     try {
       const { data } = await vehicleAPI.create(vehicleData);
       return data.vehicle || data;
     } catch (error) {
       if (USE_MOCK) {
         await new Promise((r) => setTimeout(r, 600));
-        return {
+        const user = getState().auth.user || {};
+        const vehicle = {
           ...vehicleData,
           id: Date.now(),
+          vendor: {
+            id: user.id,
+            name: user.businessName || user.name || 'Vendor',
+            email: user.email,
+            phone: user.phone,
+          },
           status: 'Available',
           createdAt: new Date().toISOString().split('T')[0],
           images: vehicleData.images?.length
             ? vehicleData.images
             : ['https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800'],
         };
+          mockVehicles.unshift(vehicle);
+          return vehicle;
       }
       return rejectWithValue(getErrorMessage(error, 'Failed to add vehicle'));
     }

@@ -2,9 +2,24 @@ import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/db.js';
 import User from './User.js';
 
+function collection(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return value.split(',').map((item) => item.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
 class Vehicle extends Model {
   toClient() {
     const vendor = this.User || this.vendor;
+    const features = collection(this.features);
+    const images = collection(this.images);
     return {
       id: this.id,
       brand: this.brand,
@@ -19,13 +34,12 @@ class Vehicle extends Model {
       color: this.color,
       registrationYear: this.registrationYear,
       description: this.description,
-      features: this.features || [],
+      features,
       type: this.type,
       status: this.status,
-      images:
-        this.images?.length > 0
-          ? this.images
-          : ['https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800'],
+      images: images.length > 0
+        ? images
+        : ['https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800'],
       vendor: vendor
         ? {
             id: vendor.id,

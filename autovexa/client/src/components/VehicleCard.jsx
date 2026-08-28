@@ -4,6 +4,19 @@ import { FaGasPump, FaCogs, FaTachometerAlt, FaCheckCircle, FaClock } from 'reac
 
 const FALLBACK = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600';
 
+function firstImage(value) {
+  if (Array.isArray(value)) return value[0] || FALLBACK;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed[0] || FALLBACK : value;
+    } catch {
+      return value || FALLBACK;
+    }
+  }
+  return FALLBACK;
+}
+
 export default function VehicleCard({ vehicle }) {
   const navigate = useNavigate();
   const { isAuthenticated, role } = useSelector((s) => s.auth);
@@ -37,7 +50,7 @@ export default function VehicleCard({ vehicle }) {
     <div className="card group h-full flex flex-col">
       <Link to={detailPath} className="relative overflow-hidden bg-slate-100 shrink-0 block">
         <img
-          src={vehicle.images?.[0] || FALLBACK}
+          src={firstImage(vehicle.images)}
           alt={`${vehicle.brand} ${vehicle.model}`}
           className="vehicle-img"
           loading="lazy"
