@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
-import { fetchBookings, fetchInvoice } from '../../redux/bookingSlice';
+import { fetchBookings, fetchInvoice, cancelBooking, payBooking, submitFeedback } from '../../redux/bookingSlice';
 import Loading from '../../components/Loading';
 import { FaDownload } from 'react-icons/fa';
+import { openRazorpayCheckout } from '../../utils/razorpay';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -17,6 +18,8 @@ export default function MyBookings() {
   const dispatch = useDispatch();
   const { bookings, loading } = useSelector((s) => s.bookings);
   const [downloadingId, setDownloadingId] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const [feedback, setFeedback] = useState({});
 
   useEffect(() => { dispatch(fetchBookings()); }, [dispatch]);
 
@@ -35,6 +38,47 @@ export default function MyBookings() {
       URL.revokeObjectURL(url);
     }
     setDownloadingId(null);
+  };
+
+  const handleCancel = async (id) => {
+    if (!window.confirm('Cancel this booking?')) return;
+    setBusyId(id);
+    await dispatch(cancelBooking(id));
+    setBusyId(null);
+  };
+
+  const handlePayment = async (id) => {
+    setBusyId(id);
+    const result = await dispatch(payBooking({ id }));
+    if (payBooking.fulfilled.match(result) && result.payload.paymentOrder) {
+      await openRazorpayCheckout({
+        paymentOrder: result.payload.paymentOrder,
+        booking: result.payload,
+        onSuccess: async (response) => {
+          await dispatch(payBooking({
+            id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpayOrderId: response.razorpay_order_id,
+            razorpaySignature: response.razorpay_signature,
+          }));
+          setBusyId(null);
+        },
+        onFailure: () => setBusyId(null),
+      });
+    } else {
+      setBusyId(null);
+    }
+  };
+
+  const handleFeedback = async (id) => {
+    const entry = feedback[id] || {};
+    if (!entry.rating || !entry.comment?.trim()) return;
+    setBusyId(id);
+    const result = await dispatch(submitFeedback({ id, rating: Number(entry.rating), comment: entry.comment }));
+    if (submitFeedback.fulfilled.match(result)) {
+      setFeedback((current) => ({ ...current, [id]: { ...entry, submitted: true } }));
+    }
+    setBusyId(null);
   };
 
   const statusClass = { Pending: 'bg-yellow-100 text-yellow-800', Confirmed: 'bg-blue-100 text-blue-800', Cancelled: 'bg-red-100 text-red-800', Completed: 'bg-purple-100 text-purple-800' };
@@ -68,7 +112,50 @@ export default function MyBookings() {
                 >
                   <FaDownload /> {downloadingId === b.id ? 'Preparing...' : 'Invoice'}
                 </button>
+                {['Pending', 'Confirmed'].includes(b.status) && (
+                  <button
+                    type="button"
+                    onClick={() => handleCancel(b.id)}
+                    disabled={busyId === b.id}
+                    className="text-sm font-semibold text-red-600 hover:text-red-700"
+                  >
+                    Cancel booking
+                  </button>
+                )}
               </div>
+              {b.paymentStatus !== 'Paid' && b.status !== 'Cancelled' && (
+                <div className="w-full border-t border-slate-100 pt-4 flex flex-wrap items-center gap-3 text-sm">
+                  <span className="font-semibold text-amber-700">Payment pending</span>
+                  <button type="button" onClick={() => handlePayment(b.id)} disabled={busyId === b.id} className="btn-primary min-h-10! py-2!">
+                    {busyId === b.id ? 'Opening Razorpay...' : 'Pay securely'}
+                  </button>
+                </div>
+              )}
+              {b.status === 'Completed' && !b.feedback && !feedback[b.id]?.submitted && (
+                <div className="w-full border-t border-slate-100 pt-4 space-y-3">
+                  <p className="font-semibold text-slate-800">How was your experience?</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <select
+                      className="input-field w-auto! py-2!"
+                      value={feedback[b.id]?.rating || ''}
+                      onChange={(e) => setFeedback((current) => ({ ...current, [b.id]: { ...current[b.id], rating: e.target.value } }))}
+                    >
+                      <option value="">Rating</option>
+                      {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} / 5</option>)}
+                    </select>
+                    <input
+                      className="input-field flex-1 min-w-55 py-2!"
+                      placeholder="Share your experience"
+                      value={feedback[b.id]?.comment || ''}
+                      onChange={(e) => setFeedback((current) => ({ ...current, [b.id]: { ...current[b.id], comment: e.target.value } }))}
+                    />
+                    <button type="button" onClick={() => handleFeedback(b.id)} disabled={busyId === b.id} className="btn-primary min-h-10! py-2!">
+                      Send feedback
+                    </button>
+                  </div>
+                </div>
+              )}
+              {b.feedback && <p className="w-full border-t border-slate-100 pt-3 text-sm text-slate-600">Your feedback: {b.feedback.rating}/5 - {b.feedback.comment}</p>}
             </div>
           ))}
         </div>

@@ -71,7 +71,7 @@ export const createBooking = createAsyncThunk(
   async (bookingData, { rejectWithValue, getState }) => {
     try {
       const { data } = await bookingAPI.create(bookingData);
-      return data.booking || data;
+      return data.booking ? { ...data.booking, paymentOrder: data.paymentOrder } : data;
     } catch (error) {
       if (USE_MOCK) {
         await new Promise((r) => setTimeout(r, 800));
@@ -140,6 +140,35 @@ export const cancelBooking = createAsyncThunk(
         return { id, status: 'Cancelled' };
       }
       return rejectWithValue(getErrorMessage(error, 'Failed to cancel booking'));
+    }
+  }
+);
+
+export const payBooking = createAsyncThunk(
+  'bookings/pay',
+  async ({ id, razorpayPaymentId, razorpayOrderId, razorpaySignature }, { rejectWithValue }) => {
+    try {
+      const { data } = await bookingAPI.pay(id, {
+        razorpayPaymentId,
+        razorpayOrderId,
+        razorpaySignature,
+      });
+      return data.booking ? { ...data.booking, paymentOrder: data.paymentOrder } : data;
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error, 'Payment failed'));
+    }
+  }
+);
+
+export const submitFeedback = createAsyncThunk(
+  'bookings/feedback',
+  async ({ id, rating, comment }, { rejectWithValue }) => {
+    try {
+      const { data } = await bookingAPI.submitFeedback(id, { rating, comment });
+      return data.booking || data;
+    } catch (error) {
+      if (USE_MOCK) return { id, feedback: { rating, comment } };
+      return rejectWithValue(getErrorMessage(error, 'Could not submit feedback'));
     }
   }
 );
@@ -261,7 +290,7 @@ const bookingSlice = createSlice({
         state.bookings.unshift(action.payload);
         state.selectedBooking = action.payload;
         state.success = true;
-        state.successMessage = 'Booking confirmed successfully';
+        state.successMessage = 'Razorpay checkout is ready';
       })
       .addCase(createBooking.rejected, (state, action) => {
         state.loading = false;
@@ -284,6 +313,18 @@ const bookingSlice = createSlice({
           state.selectedBooking.status = status || 'Cancelled';
         }
         state.successMessage = 'Booking cancelled';
+      })
+      .addCase(payBooking.fulfilled, (state, action) => {
+        const booking = state.bookings.find((b) => b.id === action.payload.id);
+        if (booking) Object.assign(booking, action.payload);
+        if (state.selectedBooking?.id === action.payload.id) Object.assign(state.selectedBooking, action.payload);
+        state.successMessage = 'Payment completed';
+      })
+      .addCase(submitFeedback.fulfilled, (state, action) => {
+        const booking = state.bookings.find((b) => b.id === action.payload.id);
+        if (booking) Object.assign(booking, action.payload);
+        if (state.selectedBooking?.id === action.payload.id) Object.assign(state.selectedBooking, action.payload);
+        state.successMessage = 'Thank you for your feedback';
       })
       .addCase(fetchInvoice.pending, (state) => {
         state.loading = true;

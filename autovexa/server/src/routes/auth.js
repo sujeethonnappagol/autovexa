@@ -49,6 +49,7 @@ router.post(
       address: address || '',
       gstNumber: gstNumber || gst || '',
       vendorStatus: 'Pending',
+      razorpayAccountId: '',
     });
 
     res.status(201).json({

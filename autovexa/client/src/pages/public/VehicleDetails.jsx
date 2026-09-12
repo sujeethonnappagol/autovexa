@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchVehicleById } from '../../redux/vehicleSlice';
-import { createBooking } from '../../redux/bookingSlice';
+import { createBooking, payBooking } from '../../redux/bookingSlice';
+import { openRazorpayCheckout } from '../../utils/razorpay';
 import Loading from '../../components/Loading';
 import { FaCheck, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
@@ -103,7 +104,24 @@ export default function VehicleDetails() {
     );
     if (createBooking.fulfilled.match(result)) {
       setShowBooking(false);
-      navigate('/user/bookings');
+      await openRazorpayCheckout({
+        paymentOrder: result.payload.paymentOrder,
+        booking: result.payload,
+        onSuccess: async (response) => {
+          const paymentResult = await dispatch(payBooking({
+            id: result.payload.id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpayOrderId: response.razorpay_order_id,
+            razorpaySignature: response.razorpay_signature,
+          }));
+          if (payBooking.fulfilled.match(paymentResult)) navigate('/user/bookings');
+          else setBookingError(paymentResult.payload || 'Payment verification failed.');
+        },
+        onFailure: (message) => {
+          setBookingError(message);
+          setShowBooking(true);
+        },
+      });
     } else {
       setBookingError(result.payload || 'Booking failed. Please try again.');
     }
@@ -336,6 +354,7 @@ export default function VehicleDetails() {
                   <span>{formatPrice(vehiclePrice + 5000 + 4000)}</span>
                 </div>
               </div>
+              <p className="text-xs text-slate-500">You will complete payment securely in Razorpay Checkout. AutoVexa never stores card or UPI details.</p>
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -349,7 +368,7 @@ export default function VehicleDetails() {
                   disabled={bookingState.loading}
                   className="btn-primary flex-1"
                 >
-                  {bookingState.loading ? 'Booking...' : 'Confirm Booking'}
+                  {bookingState.loading ? 'Processing...' : 'Pay & Confirm Booking'}
                 </button>
               </div>
             </form>

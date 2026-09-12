@@ -19,6 +19,7 @@ class User extends Model {
       address: this.address,
       gstNumber: this.gstNumber,
       vendorStatus: this.vendorStatus,
+      razorpayAccountId: this.razorpayAccountId,
       createdAt: this.createdAt,
     };
   }
@@ -50,6 +51,7 @@ User.init(
       type: DataTypes.ENUM('Pending', 'Active', 'Disabled', ''),
       defaultValue: '',
     },
+    razorpayAccountId: { type: DataTypes.STRING(80), defaultValue: '' },
   },
   {
     sequelize,

@@ -22,6 +22,7 @@ export default function AdminVendors() {
   const [createdCreds, setCreatedCreds] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [paymentAccounts, setPaymentAccounts] = useState({});
 
   const load = async () => {
     setLoading(true);
@@ -96,6 +97,18 @@ export default function AdminVendors() {
       await load();
     } catch (err) {
       alert(getErrorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const savePaymentAccount = async (id) => {
+    setBusyId(id);
+    try {
+      await adminAPI.updateVendorPaymentAccount(id, paymentAccounts[id] || '');
+      await load();
+    } catch (err) {
+      alert(getErrorMessage(err, 'Could not save Razorpay account'));
     } finally {
       setBusyId(null);
     }
@@ -218,6 +231,17 @@ export default function AdminVendors() {
                   Vehicles: {v.totalVehicles ?? 0} · Status:{' '}
                   <span className="font-semibold">{v.vendorStatus || v.status}</span>
                 </p>
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <input
+                    className="input-field !w-72 !py-2 text-xs"
+                    placeholder="Razorpay linked account ID"
+                    value={paymentAccounts[v.id] ?? v.razorpayAccountId ?? ''}
+                    onChange={(e) => setPaymentAccounts((current) => ({ ...current, [v.id]: e.target.value }))}
+                  />
+                  <button type="button" disabled={busyId === v.id} onClick={() => savePaymentAccount(v.id)} className="btn-outline text-xs !min-h-[36px]">
+                    Save payment account
+                  </button>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 {(v.vendorStatus === 'Pending' || v.status === 'Pending') && (

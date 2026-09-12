@@ -68,7 +68,7 @@ router.get(
 router.post(
   '/vendors',
   asyncHandler(async (req, res) => {
-    const { name, email, phone, businessName, address, gstNumber, password } = req.body;
+    const { name, email, phone, businessName, address, gstNumber, password, razorpayAccountId } = req.body;
     const exists = await User.findOne({ where: { email: email?.toLowerCase() } });
     if (exists) return res.status(400).json({ message: 'Email already exists' });
 
@@ -83,6 +83,7 @@ router.post(
       address,
       gstNumber,
       vendorStatus: 'Active',
+      razorpayAccountId: razorpayAccountId || '',
     });
     // Return credentials once so admin can share with the vendor
     res.status(201).json({
@@ -100,6 +101,17 @@ router.patch(
     const vendor = await User.findOne({ where: { id: req.params.id, role: 'vendor' } });
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
     vendor.vendorStatus = 'Active';
+    await vendor.save();
+    res.json(vendor.toSafeJSON());
+  })
+);
+
+router.patch(
+  '/vendors/:id/payment-account',
+  asyncHandler(async (req, res) => {
+    const vendor = await User.findOne({ where: { id: req.params.id, role: 'vendor' } });
+    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+    vendor.razorpayAccountId = String(req.body.razorpayAccountId || '').trim();
     await vendor.save();
     res.json(vendor.toSafeJSON());
   })

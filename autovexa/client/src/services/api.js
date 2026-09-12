@@ -74,6 +74,8 @@ export const bookingAPI = {
   updateStatus: (id, status) => api.patch(`/bookings/${id}/status`, { status }),
   getInvoice: (id) => api.get(`/bookings/${id}/invoice`),
   cancel: (id) => api.patch(`/bookings/${id}/cancel`),
+  pay: (id, data) => api.post(`/bookings/${id}/pay`, data),
+  submitFeedback: (id, data) => api.patch(`/bookings/${id}/feedback`, data),
 };
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
@@ -83,6 +85,7 @@ export const adminAPI = {
   createVendor: (data) => api.post('/admin/vendors', data),
   updateVendor: (id, data) => api.put(`/admin/vendors/${id}`, data),
   deleteVendor: (id) => api.delete(`/admin/vendors/${id}`),
+  updateVendorPaymentAccount: (id, razorpayAccountId) => api.patch(`/admin/vendors/${id}/payment-account`, { razorpayAccountId }),
   approveVendor: (id) => api.patch(`/admin/vendors/${id}/approve`),
   disableVendor: (id) => api.patch(`/admin/vendors/${id}/disable`),
   getUsers: (params) => api.get('/admin/users', { params }),
