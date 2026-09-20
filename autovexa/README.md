@@ -4,6 +4,11 @@ AutoVexa — Online Vehicle Marketplace
 
 Built with **React (Vite)**, **Redux Toolkit**, **Express.js**, and **MySQL** (Sequelize).
 
+### Quick stats
+- 5 seeded vehicle listings across SUV, sedan, and electric categories
+- 4 demo accounts in the default dataset (1 admin, 2 vendors, 1 customer)
+- Role-based flows for browsing, booking, vendor management, and admin approvals
+
 ---
 
 ## Features
