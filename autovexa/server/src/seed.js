@@ -100,16 +100,16 @@ async function seed() {
   const admin = await User.create({
     name: 'Admin User',
     email: 'admin@autovexa.com',
-    phone: '+91 9000000001',
-    password: 'admin123',
+    phone: '9000000001',
+    password: 'Admin@123',
     role: 'admin',
   });
 
   const vendor = await User.create({
     name: 'Rajesh Kumar',
     email: 'abc@motors.com',
-    phone: '+91 98765 43210',
-    password: 'vendor123',
+    phone: '9876543210',
+    password: 'Vendor@123',
     role: 'vendor',
     businessName: 'ABC Motors',
     address: '123 MG Road, Bangalore',
@@ -120,8 +120,8 @@ async function seed() {
   const vendor2 = await User.create({
     name: 'Priya Sharma',
     email: 'premium@auto.com',
-    phone: '+91 98765 43211',
-    password: 'vendor123',
+    phone: '9876543211',
+    password: 'Vendor@123',
     role: 'vendor',
     businessName: 'Premium Auto',
     address: '45 Park Street, Mumbai',
@@ -132,8 +132,8 @@ async function seed() {
   const customer = await User.create({
     name: 'Sujeet Honnappagol',
     email: 'sujeet@example.com',
-    phone: '+91 98765 11111',
-    password: 'user123',
+    phone: '9876511111',
+    password: 'User@123',
     role: 'user',
   });
 
@@ -148,9 +148,9 @@ async function seed() {
 
   console.log('Seed complete.');
   console.log('--- Demo accounts ---');
-  console.log('Admin:    admin@autovexa.com / admin123');
-  console.log('Vendor:   abc@motors.com / vendor123');
-  console.log('Customer: sujeet@example.com / user123');
+  console.log('Admin:    admin@autovexa.com / Admin@123');
+  console.log('Vendor:   abc@motors.com / Vendor@123');
+  console.log('Customer: sujeet@example.com / User@123');
   console.log(`Users: admin=${admin.id}, vendor=${vendor.id}, customer=${customer.id}`);
 
   await sequelize.close();

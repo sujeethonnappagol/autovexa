@@ -180,7 +180,7 @@ export const fetchInvoice = createAsyncThunk(
   'bookings/fetchInvoice',
   async (id, { rejectWithValue }) => {
     try {
-      const { data } = await bookingAPI.getInvoice(id);
+      const { data } = await bookingAPI.getReceipt(id);
       return data;
     } catch (error) {
       if (USE_MOCK) {

@@ -44,7 +44,7 @@ export const mockVendorStats = { totalVehicles: 5, availableVehicles: 4, bookedV
 export const mockUserStats = { totalBookings: 3, pendingBookings: 0, confirmedBookings: 2, completedBookings: 1 };
 
 export const DEMO_CREDENTIALS = {
-  admin: { email: 'admin@autovexa.com', password: 'admin123', role: 'admin', name: 'Admin User' },
-  vendor: { email: 'abc@motors.com', password: 'vendor123', role: 'vendor', name: 'Rajesh Kumar', vendorId: 1, status: 'Active' },
-  user: { email: 'sujeet@example.com', password: 'user123', role: 'user', name: 'Sujeet Honnappagol', userId: 1 },
+  admin: { email: 'admin@autovexa.com', password: 'Admin@123', role: 'admin', name: 'Admin User' },
+  vendor: { email: 'abc@motors.com', password: 'Vendor@123', role: 'vendor', name: 'Rajesh Kumar', vendorId: 1, status: 'Active' },
+  user: { email: 'sujeet@example.com', password: 'User@123', role: 'user', name: 'Sujeet Honnappagol', userId: 1 },
 };

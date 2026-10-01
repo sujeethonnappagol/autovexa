@@ -13,6 +13,7 @@ import bookingRoutes from './routes/bookings.js';
 import adminRoutes from './routes/admin.js';
 import vendorRoutes from './routes/vendor.js';
 import chatRoutes from './routes/chat.js';
+import paymentRoutes from './routes/payments.js';
 import './models/ChatMessage.js';
 
 const app = express();
@@ -24,6 +25,7 @@ app.use(
     credentials: true,
   })
 );
+app.use('/api/payments', paymentRoutes);
 app.use(express.json({ limit: '10mb' }));
 app.use(morgan('dev'));
 

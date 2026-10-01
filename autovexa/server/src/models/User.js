@@ -19,6 +19,7 @@ class User extends Model {
       address: this.address,
       gstNumber: this.gstNumber,
       vendorStatus: this.vendorStatus,
+      upiId: this.upiId,
       razorpayAccountId: this.razorpayAccountId,
       createdAt: this.createdAt,
     };
@@ -51,6 +52,7 @@ User.init(
       type: DataTypes.ENUM('Pending', 'Active', 'Disabled', ''),
       defaultValue: '',
     },
+    upiId: { type: DataTypes.STRING(260), allowNull: true, unique: true },
     razorpayAccountId: { type: DataTypes.STRING(80), defaultValue: '' },
   },
   {

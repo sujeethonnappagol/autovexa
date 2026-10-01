@@ -8,6 +8,8 @@ export const razorpayConfigured =
   isRealCredential(process.env.RAZORPAY_KEY_ID, 'rzp_test_your_key_id') &&
   isRealCredential(process.env.RAZORPAY_KEY_SECRET, 'your_razorpay_key_secret');
 
+export const razorpayWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || '';
+
 const razorpay = razorpayConfigured
   ? new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,

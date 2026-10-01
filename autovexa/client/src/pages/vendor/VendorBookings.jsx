@@ -124,6 +124,9 @@ export default function VendorBookings() {
                     >
                       {b.status}
                     </span>
+                    <span className={`status-badge ${b.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                      {b.paymentStatus === 'Paid' ? 'Paid' : 'Payment pending'}
+                    </span>
                     {b.status === 'Pending' && (
                       <button
                         type="button"

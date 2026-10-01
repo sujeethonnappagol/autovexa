@@ -1,9 +1,15 @@
 import express from 'express';
+import { Op } from 'sequelize';
 import User from '../models/User.js';
 import Vehicle from '../models/Vehicle.js';
 import Booking from '../models/Booking.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { isValidUpiId, normalizeUpiId } from '../utils/paymentIdentity.js';
+
+const PHONE_PATTERN = /^\d{10}$/;
+const PASSWORD_PATTERN = /^(?=(?:.*\d){2,})(?=.*[^A-Za-z0-9]).{5,}$/;
+const normalizePhone = (value = '') => String(value || '').replace(/\D/g, '').slice(0, 10);
 
 const router = express.Router();
 router.use(protect, authorize('admin'));
@@ -44,6 +50,31 @@ router.get(
   })
 );
 
+router.post(
+  '/admins',
+  asyncHandler(async (req, res) => {
+    const { name, email, phone, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Name, email and password are required' });
+    }
+    const normalizedPhone = normalizePhone(phone);
+    if (!PHONE_PATTERN.test(normalizedPhone)) {
+      return res.status(400).json({ message: 'Phone number must be exactly 10 digits' });
+    }
+    if (!PASSWORD_PATTERN.test(String(password))) {
+      return res.status(400).json({
+        message: 'Password must be at least 5 characters, include at least 2 digits and 1 special character',
+      });
+    }
+    const normalizedEmail = email.toLowerCase();
+    if (await User.findOne({ where: { email: normalizedEmail } })) {
+      return res.status(409).json({ message: 'Email already exists' });
+    }
+    const admin = await User.create({ name, email: normalizedEmail, phone: normalizedPhone, password, role: 'admin' });
+    res.status(201).json(admin.toSafeJSON());
+  })
+);
+
 router.get(
   '/vendors',
   asyncHandler(async (_req, res) => {
@@ -68,21 +99,38 @@ router.get(
 router.post(
   '/vendors',
   asyncHandler(async (req, res) => {
-    const { name, email, phone, businessName, address, gstNumber, password, razorpayAccountId } = req.body;
+    const { name, email, phone, businessName, address, gstNumber, password, razorpayAccountId, upiId } = req.body;
+    const normalizedPhone = normalizePhone(phone);
+    if (!PHONE_PATTERN.test(normalizedPhone)) {
+      return res.status(400).json({ message: 'Phone number must be exactly 10 digits' });
+    }
+    if (!PASSWORD_PATTERN.test(String(password || ''))) {
+      return res.status(400).json({
+        message: 'Password must be at least 5 characters, include at least 2 digits and 1 special character',
+      });
+    }
     const exists = await User.findOne({ where: { email: email?.toLowerCase() } });
     if (exists) return res.status(400).json({ message: 'Email already exists' });
+    const normalizedUpiId = normalizeUpiId(upiId);
+    if (!isValidUpiId(normalizedUpiId)) {
+      return res.status(400).json({ message: 'A valid vendor UPI ID is required' });
+    }
+    if (await User.findOne({ where: { upiId: normalizedUpiId } })) {
+      return res.status(409).json({ message: 'That UPI ID is already linked to another account' });
+    }
 
     const plainPassword = password || 'vendor123';
     const vendor = await User.create({
       name,
       email: email.toLowerCase(),
-      phone,
+      phone: normalizedPhone,
       password: plainPassword,
       role: 'vendor',
       businessName,
       address,
       gstNumber,
       vendorStatus: 'Active',
+      upiId: normalizedUpiId,
       razorpayAccountId: razorpayAccountId || '',
     });
     // Return credentials once so admin can share with the vendor
@@ -112,6 +160,13 @@ router.patch(
     const vendor = await User.findOne({ where: { id: req.params.id, role: 'vendor' } });
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
     vendor.razorpayAccountId = String(req.body.razorpayAccountId || '').trim();
+    if (req.body.upiId !== undefined) {
+      const upiId = normalizeUpiId(req.body.upiId);
+      if (!isValidUpiId(upiId)) return res.status(400).json({ message: 'A valid vendor UPI ID is required' });
+      const duplicate = await User.findOne({ where: { upiId, id: { [Op.ne]: vendor.id } } });
+      if (duplicate) return res.status(409).json({ message: 'That UPI ID is already linked to another account' });
+      vendor.upiId = upiId;
+    }
     await vendor.save();
     res.json(vendor.toSafeJSON());
   })

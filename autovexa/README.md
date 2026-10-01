@@ -5,6 +5,7 @@ AutoVexa — Online Vehicle Marketplace
 Built with **React (Vite)**, **Redux Toolkit**, **Express.js**, and **MySQL** (Sequelize).
 
 ### Quick stats
+
 - 5 seeded vehicle listings across SUV, sedan, and electric categories
 - 4 demo accounts in the default dataset (1 admin, 2 vendors, 1 customer)
 - Role-based flows for browsing, booking, vendor management, and admin approvals
@@ -178,11 +179,11 @@ npm run dev
 
 App: **http://localhost:5173**
 
-### Razorpay vendor payments
+### Razorpay payments and vendor receipts
 
-Real payments use Razorpay Checkout and Razorpay Route. Enable Route on the Razorpay platform account and create or onboard a linked account for every vendor. Copy each vendor's linked account ID (for example, `acc_...`) into **Admin → Vendors → Razorpay linked account ID** and save it.
+Payments use Razorpay Checkout with platform collection. The server verifies the Razorpay signature, captures the payment, marks the booking as paid, and creates a vendor-branded receipt containing the vendor, receipt number, amount, and payment ID. Vendor linked accounts are not required for this MVP flow.
 
-The server verifies the Razorpay signature and transfers the full booking amount to the linked account belonging to the vehicle's vendor. It refuses checkout when the platform keys or that vendor's linked account are missing. Never commit `RAZORPAY_KEY_SECRET`; keep it only in `server/.env`.
+Configure `RAZORPAY_WEBHOOK_SECRET` from the Razorpay Dashboard to allow the `payment.captured` webhook to confirm payments when the browser closes. Never commit `RAZORPAY_KEY_SECRET` or `RAZORPAY_WEBHOOK_SECRET`; keep them only in `server/.env`.
 
 After updating `server/.env`, run:
 

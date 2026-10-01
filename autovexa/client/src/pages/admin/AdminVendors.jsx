@@ -10,6 +10,7 @@ const emptyForm = {
   businessName: '',
   address: '',
   gstNumber: '',
+  upiId: '',
   password: '',
 };
 
@@ -23,6 +24,7 @@ export default function AdminVendors() {
   const [busyId, setBusyId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [paymentAccounts, setPaymentAccounts] = useState({});
+  const [upiIds, setUpiIds] = useState({});
 
   const load = async () => {
     setLoading(true);
@@ -105,7 +107,7 @@ export default function AdminVendors() {
   const savePaymentAccount = async (id) => {
     setBusyId(id);
     try {
-      await adminAPI.updateVendorPaymentAccount(id, paymentAccounts[id] || '');
+      await adminAPI.updateVendorPaymentAccount(id, paymentAccounts[id] || '', upiIds[id] ?? undefined);
       await load();
     } catch (err) {
       alert(getErrorMessage(err, 'Could not save Razorpay account'));
@@ -196,6 +198,10 @@ export default function AdminVendors() {
             <label className="label">GST Number</label>
             <input className="input-field" value={form.gstNumber} onChange={(e) => set('gstNumber', e.target.value)} />
           </div>
+          <div>
+            <label className="label">Vendor UPI ID *</label>
+            <input required className="input-field" placeholder="vendor@upi" value={form.upiId} onChange={(e) => set('upiId', e.target.value)} />
+          </div>
           <div className="sm:col-span-2">
             <label className="label">Address</label>
             <input className="input-field" value={form.address} onChange={(e) => set('address', e.target.value)} />
@@ -237,6 +243,12 @@ export default function AdminVendors() {
                     placeholder="Razorpay linked account ID"
                     value={paymentAccounts[v.id] ?? v.razorpayAccountId ?? ''}
                     onChange={(e) => setPaymentAccounts((current) => ({ ...current, [v.id]: e.target.value }))}
+                  />
+                  <input
+                    className="input-field !w-56 !py-2 text-xs"
+                    placeholder="Vendor UPI ID"
+                    value={upiIds[v.id] ?? v.upiId ?? ''}
+                    onChange={(e) => setUpiIds((current) => ({ ...current, [v.id]: e.target.value }))}
                   />
                   <button type="button" disabled={busyId === v.id} onClick={() => savePaymentAccount(v.id)} className="btn-outline text-xs !min-h-[36px]">
                     Save payment account

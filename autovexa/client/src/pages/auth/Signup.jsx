@@ -3,21 +3,51 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { register, clearError } from '../../redux/authSlice';
 import { FaCarSide } from 'react-icons/fa';
+import { getPasswordError, isStrongPassword, isValidPhone, normalizePhone } from '../../utils/validators';
 
 export default function Signup() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
+  const [errors, setErrors] = useState({});
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const { loading, error, successMessage } = useSelector((s) => s.auth);
   const redirectMsg = location.state?.message;
 
+  const updateField = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const validateForm = () => {
+    const nextErrors = {};
+    const phone = normalizePhone(form.phone);
+
+    if (!form.name.trim()) nextErrors.name = 'Full name is required';
+    if (!/\S+@\S+\.\S+/.test(form.email.trim())) nextErrors.email = 'Please enter a valid email address';
+    if (!isValidPhone(phone)) nextErrors.phone = 'Phone number must be exactly 10 digits';
+    if (form.password !== form.confirm) nextErrors.confirm = 'Passwords do not match';
+    const passwordError = getPasswordError(form.password);
+    if (passwordError) nextErrors.password = passwordError;
+    if (!isStrongPassword(form.password) && !passwordError) {
+      nextErrors.password = 'Password must be at least 5 characters, include 2 digits and 1 special character';
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (form.password !== form.confirm) return alert('Passwords do not match');
+    const phone = normalizePhone(form.phone);
+
+    if (!validateForm()) return;
+
     dispatch(clearError());
-    const result = await dispatch(register(form));
-    if (register.fulfilled.match(result)) setTimeout(() => navigate('/login'), 1500);
+    const result = await dispatch(register({ ...form, phone }));
+    if (register.fulfilled.match(result)) {
+      navigate('/login', { replace: true, state: { message: 'Registration successful. Please login.' } });
+    }
   };
 
   return (
@@ -42,23 +72,34 @@ export default function Signup() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="label">Full Name</label>
-            <input required className="input-field" placeholder="John Doe" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input required className={`input-field ${errors.name ? 'border-red-300 focus:ring-red-200' : ''}`} placeholder="John Doe" value={form.name} onChange={(e) => updateField('name', e.target.value)} />
+            {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
           </div>
           <div>
             <label className="label">Email</label>
-            <input type="email" required className="input-field" placeholder="you@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <input type="email" required className={`input-field ${errors.email ? 'border-red-300 focus:ring-red-200' : ''}`} placeholder="you@example.com" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
+            {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
           </div>
           <div>
             <label className="label">Phone</label>
-            <input required className="input-field" placeholder="+91 98765 43210" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <input
+              required
+              className={`input-field ${errors.phone ? 'border-red-300 focus:ring-red-200' : ''}`}
+              placeholder="9876543210"
+              value={form.phone}
+              onChange={(e) => updateField('phone', normalizePhone(e.target.value))}
+            />
+            {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
           </div>
           <div>
             <label className="label">Password</label>
-            <input type="password" required className="input-field" placeholder="••••••••" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <input type="password" required className={`input-field ${errors.password ? 'border-red-300 focus:ring-red-200' : ''}`} placeholder="••••••••" value={form.password} onChange={(e) => updateField('password', e.target.value)} />
+            {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
           </div>
           <div>
             <label className="label">Confirm Password</label>
-            <input type="password" required className="input-field" placeholder="••••••••" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} />
+            <input type="password" required className={`input-field ${errors.confirm ? 'border-red-300 focus:ring-red-200' : ''}`} placeholder="••••••••" value={form.confirm} onChange={(e) => updateField('confirm', e.target.value)} />
+            {errors.confirm && <p className="mt-1 text-xs text-red-600">{errors.confirm}</p>}
           </div>
           <button type="submit" disabled={loading} className="btn-primary w-full py-3 mt-2">
             {loading ? 'Creating...' : 'Create Account'}

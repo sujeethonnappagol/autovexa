@@ -57,12 +57,12 @@ export const KNOWLEDGE = [
   {
     keys: ['price', 'cost', 'payment', 'pay'],
     answer:
-      'Listing prices are shown in INR. Booking uses a mock summary (vehicle amount + fee + tax). Real payment is not enabled in this demo frontend.',
+      'Listing prices are shown in INR. Booking adds the vehicle amount, a ₹5,000 booking fee, and ₹4,000 tax, then opens Razorpay Checkout when the server and vendor payment account are configured.',
   },
   {
     keys: ['invoice', 'download invoice', 'receipt'],
     answer:
-      'After a confirmed booking, open My Bookings (customer account) to view details and download a mock invoice from your dashboard.',
+      'After a paid booking, open My Bookings to download a vendor-branded payment receipt with the receipt number and Razorpay payment ID.',
   },
   {
     keys: ['brand', 'toyota', 'bmw', 'hyundai', 'which brands'],

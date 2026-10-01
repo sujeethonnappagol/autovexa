@@ -29,6 +29,9 @@ function toClient(b) {
         id: b.vendor.id,
         name: b.vendor.businessName || b.vendor.name,
         businessName: b.vendor.businessName,
+        address: b.vendor.address,
+        phone: b.vendor.phone,
+        gstNumber: b.vendor.gstNumber,
       }
     : null;
 
@@ -48,6 +51,10 @@ function toClient(b) {
     paymentMethod: b.paymentMethod,
     transactionId: b.transactionId,
     razorpayOrderId: b.razorpayOrderId,
+    razorpayPaymentId: b.razorpayPaymentId,
+    paymentProvider: b.paymentProvider,
+    paidAt: b.paidAt,
+    receiptNumber: b.receiptNumber,
     feedback: b.feedbackRating
       ? { rating: b.feedbackRating, comment: b.feedbackComment, submittedAt: b.feedbackAt }
       : null,
@@ -63,7 +70,7 @@ const includeAll = [
     include: [{ model: User, as: 'User', attributes: ['id', 'name', 'businessName', 'email', 'phone'] }],
   },
   { model: User, as: 'customer', attributes: ['id', 'name', 'email', 'phone'] },
-  { model: User, as: 'vendor', attributes: ['id', 'name', 'businessName', 'email', 'phone'] },
+  { model: User, as: 'vendor', attributes: ['id', 'name', 'businessName', 'email', 'phone', 'address', 'gstNumber'] },
 ];
 
 router.get(
@@ -138,22 +145,23 @@ router.post(
     if (!razorpayConfigured) {
       return res.status(503).json({ message: 'Razorpay is not configured on the server' });
     }
-    const vendor = await User.findByPk(vehicle.vendorId);
-    if (!vendor?.razorpayAccountId) {
-      return res.status(409).json({ message: 'This vendor is not configured to receive Razorpay payments' });
-    }
-
     const vp = Number(vehicle.price);
     const fee = 5000;
     const taxAmt = 4000;
     const amount = vp + fee + taxAmt;
-    const order = await razorpay.orders.create({
-      amount: Math.round(amount * 100),
-      currency: 'INR',
-      receipt: `booking_${Date.now()}`,
-      payment_capture: 1,
-      notes: { vehicleId: String(vehicle.id), vendorId: String(vehicle.vendorId) },
-    });
+    let order;
+    try {
+      order = await razorpay.orders.create({
+        amount: Math.round(amount * 100),
+        currency: 'INR',
+        receipt: `booking_${Date.now()}`,
+        payment_capture: 1,
+        notes: { vehicleId: String(vehicle.id), vendorId: String(vehicle.vendorId) },
+      });
+    } catch (error) {
+      console.error('Razorpay order creation failed:', error.error?.description || error.message);
+      return res.status(502).json({ message: 'Razorpay could not create the payment order. Check the server keys and Razorpay account.' });
+    }
 
     const booking = await Booking.create({
       vehicleId: vehicle.id,
@@ -245,11 +253,6 @@ router.post(
     if (!razorpayConfigured) {
       return res.status(503).json({ message: 'Razorpay is not configured on the server' });
     }
-    const vendor = await User.findByPk(booking.vendorId);
-    if (!vendor?.razorpayAccountId) {
-      return res.status(409).json({ message: 'This vendor is not configured to receive Razorpay payments' });
-    }
-
     const { razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
     if (!razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
       const order = await razorpay.orders.create({
@@ -299,23 +302,14 @@ router.post(
       return res.status(400).json({ message: 'Razorpay payment was not captured' });
     }
 
-    const transfer = await razorpay.payments.transfer(razorpayPaymentId, {
-      transfers: [{
-        account: vendor.razorpayAccountId,
-        amount: Math.round(Number(booking.amount) * 100),
-        currency: 'INR',
-        notes: { bookingId: booking.bookingId, vendorId: String(vendor.id) },
-        linked_account_notes: ['bookingId', 'vendorId'],
-        on_hold: false,
-      }],
-    });
-    const transferId = transfer.items?.[0]?.id || '';
     booking.paymentStatus = 'Paid';
+    booking.paymentProvider = 'razorpay';
+    booking.paidAt = new Date();
+    booking.receiptNumber = booking.receiptNumber || `AVX-RCP-${new Date().getFullYear()}-${String(booking.id).padStart(5, '0')}`;
     booking.paymentMethod = `Razorpay (${payment.method || 'online'})`;
     booking.transactionId = razorpayPaymentId;
     booking.razorpayPaymentId = razorpayPaymentId;
     booking.razorpaySignature = razorpaySignature;
-    booking.razorpayTransferId = transferId;
     booking.status = 'Confirmed';
     await booking.save();
     res.json(toClient(booking));
@@ -346,14 +340,18 @@ router.patch(
 );
 
 router.get(
-  '/:id/invoice',
+  ['/:id/invoice', '/:id/receipt'],
   protect,
   asyncHandler(async (req, res) => {
     const booking = await findBooking(req.params.id);
     if (!booking) return res.status(404).json({ message: 'Invoice not found' });
     if (!canAccessBooking(booking, req.user)) return res.status(403).json({ message: 'Not your booking' });
     res.json({
-      invoiceNo: `INV-2026-${String(booking.bookingId).replace(/\D/g, '').padStart(5, '0')}`,
+      invoiceNo: booking.receiptNumber || `AVX-RCP-${new Date().getFullYear()}-${String(booking.id).padStart(5, '0')}`,
+      receiptNumber: booking.receiptNumber,
+      paidAt: booking.paidAt,
+      paymentProvider: booking.paymentProvider,
+      razorpayPaymentId: booking.razorpayPaymentId,
       date: booking.bookingDate,
       customer: {
         name: booking.customerName,
